@@ -4,28 +4,32 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const app = express();
-app.use(express.json());
+const router = express.Router();
 
 const configuration = new Configuration({
   apiKey: process.env.OPENAI_API_KEY,
 });
 const openai = new OpenAIApi(configuration);
 
-app.post('/api/generate-flashcards', async (req, res) => {
+router.post('/generate-flashcards', async (req, res) => {
   const { category } = req.body;
 
   try {
-    const response = await openai.createCompletion({
-      model: 'text-davinci-003',
-      prompt: `Generate 50 flashcards for the category: ${category}`,
+    const response = await openai.createChatCompletion({
+      model: 'gpt-3.5-turbo',
+      messages: [{ role: 'user', content: `Generate 50 flashcards for the category: ${category}` }],
       max_tokens: 1500,
     });
 
-    const flashcards = response.data.choices[0].text
+    const content = response.data.choices[0]?.message?.content;
+    if (!content) {
+      throw new Error('No content in response');
+    }
+
+    const flashcards = content
       .split('\n')
-      .filter((line) => line.trim() !== '')
-      .map((line) => {
+      .filter((line: string) => line.trim() !== '')
+      .map((line: string) => {
         const [question, answer] = line.split(':');
         return { question: question.trim(), answer: answer.trim() };
       });
@@ -37,6 +41,4 @@ app.post('/api/generate-flashcards', async (req, res) => {
   }
 });
 
-app.listen(3000, () => {
-  console.log('Server is running on port 3000');
-});
+export default router;
