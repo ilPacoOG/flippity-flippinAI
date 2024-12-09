@@ -1,14 +1,28 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import { generateFlashcards } from './generate-flashcards';
+import mongoose from 'mongoose';
 
-dotenv.config();
+dotenv.config(); // Load environment variables from .env file
 
 const app = express();
 const port = process.env.PORT || 3001;
 
 app.use(express.json());
 
+// Connect to MongoDB
+mongoose
+  .connect(process.env.MONGO_URI || '', {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  })
+  .then(() => console.log('Connected to MongoDB'))
+  .catch((err) => {
+    console.error('Failed to connect to MongoDB:', err);
+    process.exit(1); // Exit the process if the database connection fails
+  });
+
+// Generate flashcards route
 app.post('/api/generate-flashcards', async (req, res) => {
   const { category, count } = req.body;
 
@@ -29,6 +43,7 @@ app.post('/api/generate-flashcards', async (req, res) => {
   }
 });
 
+// Start the server
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });

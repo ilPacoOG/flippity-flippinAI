@@ -1,5 +1,7 @@
 import { Configuration, OpenAIApi } from 'openai';
 import dotenv from 'dotenv';
+import mongoose from 'mongoose';
+import FlashcardModel from './models/Flashcard';
 
 // Load environment variables
 dotenv.config();
