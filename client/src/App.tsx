@@ -1,135 +1,65 @@
-import React, { useState, useEffect, useRef, FormEvent, ChangeEvent } from 'react';
-import FlashcardList from './components/FlashcardList';
-import './app.css';
-import axios from 'axios';
+import express from 'express';
+import axios, { AxiosError } from 'axios';
+import dotenv from 'dotenv';
 
-interface Flashcard {
-    id: number;
-    question: string;
-    answer: string;
-    options: string[];
-}
+dotenv.config(); // Ensure this is at the very top
 
-interface Category {
-    id: number;
-    name: string;
-}
+const app = express();
+const port = process.env.PORT || 5000;
+const openaiApiKey = process.env.OPENAI_API_KEY;
 
-function App() {
-    const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
-    const [categories, setCategories] = useState<Category[]>([]);
-    const [customCategory, setCustomCategory] = useState<string>('');
+app.use(express.json());
 
-    const categoryEl = useRef<HTMLSelectElement>(null);
-    const amountEl = useRef<HTMLInputElement>(null);
+app.post('/api/generate-flashcards', async (req, res) => {
+    const { category } = req.body;
 
-    useEffect(() => {
-        axios.get('https://opentdb.com/api_category.php').then((res: any) => {
-            setCategories(res.data.trivia_categories);
-        });
-    }, []);
+    // Debugging statements
+    console.log('OpenAI API Key:', openaiApiKey);
+    console.log('Category:', category);
 
-    function decodeString(str: string): string {
-        const textArea = document.createElement('textarea');
-        textArea.innerHTML = str;
-        return textArea.value;
-    }
-
-    async function fetchWithRetry(url: string, options: any, retries: number = 3, backoff: number = 300): Promise<any> {
-        try {
-            const response = await axios.get(url, options);
-            return response;
-        } catch (error) {
-            if (retries > 0 && (error as any).response && (error as any).response.status === 429) {
-                await new Promise((resolve) => setTimeout(resolve, backoff));
-                return fetchWithRetry(url, options, retries - 1, backoff * 2);
-            } else {
-                throw error;
+    try {
+        const response = await axios.post(
+            'https://api.openai.com/v1/chat/completions',
+            {
+                model: 'gpt-3.5-turbo',
+                messages: [{ role: 'user', content: `Generate flashcards for the category: ${category}` }],
+                max_tokens: 150,
+            },
+            {
+                headers: {
+                    'Authorization': `Bearer ${openaiApiKey}`,
+                    'Content-Type': 'application/json'
+                }
             }
-        }
-    }
+        );
 
-    function handleSubmit(e: FormEvent) {
-        e.preventDefault();
-        const selectedCategory = categoryEl.current?.value;
-        const amount = amountEl.current?.value;
+        console.log('OpenAI API Response:', response.data);
 
-        if (customCategory) {
-            // Use backend endpoint to generate flashcards with OpenAI API
-            axios
-                .post('/api/generate-flashcards', { category: customCategory })
-                .then((res: any) => {
-                    setFlashcards(res.data.flashcards);
-                })
-                .catch((error: any) => {
-                    console.error('Error generating flashcards:', error);
-                });
+        const flashcards = response.data.choices.map((choice: any, index: number) => {
+            const content = choice.message.content;
+            const [question, answer] = content.split('?');
+            return {
+                id: `${index}-${Date.now()}`,
+                question: question.trim() + '?',
+                answer: answer.trim(),
+                options: [answer.trim(), 'Option 1', 'Option 2', 'Option 3'].sort(() => Math.random() - 0.5)
+            };
+        });
+
+        res.json({ flashcards });
+    } catch (error) {
+        if (axios.isAxiosError(error)) {
+            console.error('Error generating flashcards:', error.message);
+            console.error('Error details:', error.response ? error.response.data : error.message);
+            console.error('Full error response:', error.toJSON());
+            res.status(500).send('Error generating flashcards');
         } else {
-            // Use Open Trivia Database API to generate flashcards
-            fetchWithRetry('https://opentdb.com/api.php', {
-                params: {
-                    amount: amount,
-                    category: selectedCategory,
-                },
-            })
-                .then((res) => {
-                    setFlashcards(
-                        res.data.results.map((questionItem: any, index: number) => {
-                            const answer = decodeString(questionItem.correct_answer);
-                            const options = [...questionItem.incorrect_answers.map((a: string) => decodeString(a)), answer];
-                            return {
-                                id: `${index}-${Date.now()}`,
-                                question: decodeString(questionItem.question),
-                                answer: answer,
-                                options: options.sort(() => Math.random() - 0.5),
-                            };
-                        })
-                    );
-                })
-                .catch((error) => {
-                    console.error('Error fetching trivia questions:', error);
-                });
+            console.error('Unexpected error:', error);
+            res.status(500).send('Unexpected error occurred');
         }
     }
+});
 
-    return (
-        <>
-            <form className="header" onSubmit={handleSubmit}>
-                <div className="form-group">
-                    <label htmlFor="category">Category</label>
-                    <select id="category" ref={categoryEl} disabled={!!customCategory}>
-                        {categories.map((category) => {
-                            return (
-                                <option value={category.id} key={category.id}>
-                                    {category.name}
-                                </option>
-                            );
-                        })}
-                    </select>
-                </div>
-                <div className="form-group">
-                    <label htmlFor="custom-category">Or Enter Custom Category</label>
-                    <input
-                        type="text"
-                        id="custom-category"
-                        value={customCategory}
-                        onChange={(e: ChangeEvent<HTMLInputElement>) => setCustomCategory(e.target.value)}
-                        placeholder="Enter custom category"
-                    />
-                </div>
-                <div className="form-group">
-                    <label htmlFor="amount">Number of Questions</label>
-                    <input type="number" id="amount" min="1" step="1" defaultValue={10} ref={amountEl} />
-                </div>
-                <div className="form-group">
-                    <button className="btn">Generate</button>
-                </div>
-            </form>
-            <div className="container">
-                <FlashcardList flashcards={flashcards} />
-            </div>
-        </>
-    );
-}
-
-export default App;
+app.listen(port, () => {
+    console.log(`Server is running on port ${port}`);
+});
