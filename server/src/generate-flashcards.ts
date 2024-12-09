@@ -65,7 +65,9 @@ export async function generateFlashcards(
           answer: item.answer?.trim() || 'No answer provided',
           options: (item.options || [])
             .filter((opt: string) => opt.trim() !== '')
-            .map((opt: string) => opt.trim())
+            .map((opt: string) => opt.trim()),
+          category,
+          createdAt: new Date(),
         }))
       );
     } catch (error: unknown) {
@@ -86,6 +88,23 @@ export async function generateFlashcards(
         throw new Error('An unknown error occurred.');
       }
     }
+  }
+
+  try {
+    // Save flashcards to MongoDB
+    const savedFlashcards = await FlashcardModel.insertMany(
+      flashcards.map((flashcard) => ({
+        question: flashcard.question,
+        answer: flashcard.answer,
+        options: flashcard.options,
+        category: flashcard.category,
+        createdAt: flashcard.createdAt,
+      }))
+    );
+    console.log('Flashcards saved to database:', savedFlashcards);
+  } catch (dbError) {
+    console.error('Error saving flashcards to database:', dbError);
+    throw new Error('Failed to save flashcards to database');
   }
 
   return flashcards;
