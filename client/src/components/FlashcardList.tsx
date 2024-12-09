@@ -1,24 +1,25 @@
-// needs to be converted to use TypeScript
+import React, { FC } from 'react';
+import Flashcard from './Flashcard';
 
-import React from 'react'
-import Flashcard from './Flashcard'
+interface Flashcard {
+  id: string | number;
+  question: string;
+  answer: string;
+  options: string[];
+}
 
 interface FlashcardListProps {
-  flashcards: {
-    id: number;
-    question: string;
-    answer: string;
-    options: string[];
-  }[];
+  flashcards: Flashcard[];
 }
 
-export default function FlashcardList({ flashcards }: FlashcardListProps) {
+const FlashcardList: FC<FlashcardListProps> = ({ flashcards }) => {
   return (
-    <div className='card-grid'>
-      {flashcards.map(flashcard => {
-        return <Flashcard flashcard={flashcard} key={flashcard.id} />
-      })}
+    <div className="card-grid">
+      {flashcards.map((flashcard) => (
+        <Flashcard key={flashcard.id} flashcard={flashcard} />
+      ))}
     </div>
-  )
-}
+  );
+};
 
+export default FlashcardList;

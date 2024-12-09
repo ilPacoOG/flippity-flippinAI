@@ -4,7 +4,7 @@ import './app.css';
 import axios from 'axios';
 
 interface Flashcard {
-  id: number;
+  id: string | number; // Updated to support unique IDs as strings or numbers
   question: string;
   answer: string;
   options: string[];
@@ -18,6 +18,7 @@ interface Category {
 function App() {
   const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [savedCategories, setSavedCategories] = useState<string[]>([]); // State for saved categories
   const [useOpenAI, setUseOpenAI] = useState(false);
   const [customCategory, setCustomCategory] = useState('');
   const [numFlashcards, setNumFlashcards] = useState(10); // Default number of flashcards
@@ -25,9 +26,22 @@ function App() {
   const categoryEl = useRef<HTMLSelectElement>(null);
 
   useEffect(() => {
+    // Fetch OpenTDB categories
     axios.get('https://opentdb.com/api_category.php').then((res) => {
       setCategories(res.data.trivia_categories);
     });
+
+    // Fetch saved categories from the backend
+    const fetchSavedCategories = async () => {
+      try {
+        const res = await axios.get('/api/flashcards/categories');
+        setSavedCategories(res.data.categories);
+      } catch (error) {
+        console.error('Error fetching saved categories:', error);
+      }
+    };
+
+    fetchSavedCategories();
   }, []);
 
   const handleSubmit = async (e: FormEvent) => {
@@ -45,7 +59,12 @@ function App() {
           category: selectedCategory,
           count: numFlashcards,
         });
-        setFlashcards(res.data.flashcards);
+        setFlashcards(
+          res.data.flashcards.map((flashcard: any, index: number) => ({
+            ...flashcard,
+            id: flashcard.id || `${Date.now()}-${index}`, // Ensure unique ID
+          }))
+        );
       } catch (err) {
         console.error('Error with OpenAI API:', err);
         alert('Failed to generate flashcards using OpenAI.');
@@ -92,10 +111,19 @@ function App() {
 
   const fetchSavedFlashcards = async () => {
     try {
+      console.log('Fetching saved flashcards for category:', category);
       const res = await axios.get('/api/flashcards', {
-        params: { category },
+        params: { category: isNaN(Number(category)) ? category : Number(category) },
       });
-      setFlashcards(res.data.flashcards);
+
+      console.log('Fetched flashcards from database:', res.data.flashcards);
+
+      setFlashcards(
+        res.data.flashcards.map((flashcard: any, index: number) => ({
+          ...flashcard,
+          id: flashcard._id || `${Date.now()}-${index}`, // Ensure unique ID
+        }))
+      );
     } catch (error) {
       console.error('Error fetching saved flashcards:', error);
       alert('Failed to load saved flashcards.');
@@ -175,14 +203,29 @@ function App() {
       </form>
 
       <div className="container">
+        <div className="form-group">
+          <label htmlFor="saved-category">Load Saved Category</label>
+          <select
+            id="saved-category"
+            onChange={(e) => setCategory(e.target.value)}
+          >
+            <option value="">Select a category</option>
+            {savedCategories.map((cat) => (
+              <option key={cat} value={cat}>
+                {cat}
+              </option>
+            ))}
+          </select>
+          <button onClick={fetchSavedFlashcards} className="btn">
+            Load Saved Flashcards
+          </button>
+        </div>
+
         <FlashcardList flashcards={flashcards} />
         {flashcards.length > 0 && (
           <div className="actions">
             <button onClick={saveFlashcards} className="btn">
               Save Flashcards
-            </button>
-            <button onClick={fetchSavedFlashcards} className="btn">
-              Load Saved Flashcards
             </button>
           </div>
         )}
