@@ -17,40 +17,45 @@ export async function generateFlashcards(category: string, numberOfFlashcards: n
   const response = await openai.createChatCompletion({
     model: 'gpt-3.5-turbo',
     messages: [
-      { role: 'user', content: `Generate ${numberOfFlashcards} flashcards for the category: ${category}. Each flashcard should include a question, the correct answer, and 3 incorrect options.` }
+      {
+        role: 'user',
+        content: `Generate ${numberOfFlashcards} flashcards for the category: ${category}. Each flashcard should have:
+        1. A question.
+        2. A correct answer.
+        3. Three incorrect options.
+        Format the response as a JSON array where each item has "question", "answer", and "options". Do not include prefixes like "Flashcard:", "Correct Answer:", or "Incorrect Options:".`
+      }
     ],
-    max_tokens: 2000, // Increased for longer responses
+    max_tokens: 2000,
   });
 
   const message = response.data.choices[0]?.message?.content;
+
   if (!message) {
     throw new Error('No content found in OpenAI response');
   }
 
-  console.log('Generated Content:', message);
+  console.log('Raw OpenAI Response:', message);
 
-  // Split the response into lines
-  const lines = message.split('\n').filter((line) => line.trim() !== '');
-
-  // Group questions, answers, and options
-  const flashcards = [];
-  for (let i = 0; i < lines.length; i += 5) {
-    const question = lines[i]?.trim();
-    const correctAnswer = lines[i + 1]?.trim();
-    const options = [
-      correctAnswer,
-      lines[i + 2]?.trim(),
-      lines[i + 3]?.trim(),
-      lines[i + 4]?.trim(),
-    ].filter(Boolean); // Remove undefined or empty options
-
-    flashcards.push({
-      question: question || 'No question provided',
-      answer: correctAnswer || 'No correct answer provided',
-      options: options.sort(() => Math.random() - 0.5), // Shuffle options
+  // Parse the OpenAI response into a usable format
+  try {
+    const rawFlashcards = JSON.parse(message);
+    const flashcards = rawFlashcards.map((item: any, index: number) => {
+      return {
+        id: `${index}-${Date.now()}`,
+        question: item.question?.trim() || 'No question provided',
+        answer: item.answer?.trim() || 'No answer provided',
+        options: (item.options || [])
+          .filter((opt: string) => opt.trim() !== '') // Remove empty options
+          .map((opt: string) => opt.trim()), // Trim extra spaces
+      };
     });
-  }
 
-  return flashcards;
+    return flashcards;
+  } catch (error) {
+    console.error('Error parsing OpenAI response:', error);
+    throw new Error('Failed to parse OpenAI response. Ensure the API response is properly formatted.');
+  }
 }
+
 
