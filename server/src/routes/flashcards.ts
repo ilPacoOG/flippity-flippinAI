@@ -5,25 +5,28 @@ const router = express.Router();
 
 // Route to get flashcards by category
 router.get('/', async (req, res) => {
-    const { category } = req.query;
+    const { category, limit } = req.query;
   
     try {
       let query = {};
       if (category) {
-        // Force both frontend and database to use strings for category
         query = { category: String(category) };
       }
   
-      console.log('Query for fetching flashcards:', query); // Debug query being sent to MongoDB
+      console.log('Query for fetching flashcards:', query); // Debug query
   
-      const flashcards = await FlashcardModel.find(query);
-      console.log('Fetched flashcards from database:', flashcards); // Debug database response
+      const flashcards = await FlashcardModel.find(query)
+        .limit(Number(limit) || 0) // Apply limit if provided
+        .exec();
+  
+      console.log('Fetched flashcards from database:', flashcards);
       res.status(200).json({ flashcards });
     } catch (error) {
       console.error('Error fetching flashcards:', error);
       res.status(500).json({ error: 'Failed to fetch flashcards' });
     }
   });
+  
   
   
 
