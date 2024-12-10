@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef, FormEvent } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import FlashcardList from './components/FlashcardList';
+import Header from './components/Header';
 import './app.css';
 import axios from 'axios';
 
@@ -43,9 +44,7 @@ function App() {
     fetchSavedCategories();
   }, []);
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-
+  const handleGenerateFlashcards = async () => {
     const selectedCategory = useOpenAI
       ? customCategory || 'General Knowledge'
       : categoryEl.current?.value || '';
@@ -95,7 +94,7 @@ function App() {
     }
   };
 
-  const saveFlashcards = async () => {
+  const handleSaveFlashcards = async () => {
     try {
       await axios.post('/api/flashcards', {
         flashcards,
@@ -108,7 +107,7 @@ function App() {
     }
   };
 
-  const fetchSavedFlashcards = async () => {
+  const handleLoadSavedFlashcards = async () => {
     try {
       const res = await axios.get('/api/flashcards', {
         params: {
@@ -129,113 +128,28 @@ function App() {
   };
 
   return (
-    <>
-      <header className="header">
-  <div className="form-group">
-    <label>
-      <input
-        type="radio"
-        name="source"
-        value="opentdb"
-        checked={!useOpenAI}
-        onChange={() => setUseOpenAI(false)}
+    <div>
+      <Header
+        categories={categories}
+        savedCategories={savedCategories}
+        useOpenAI={useOpenAI}
+        customCategory={customCategory}
+        setCustomCategory={setCustomCategory}
+        setCategory={setCategory}
+        setUseOpenAI={setUseOpenAI}
+        numFlashcards={numFlashcards}
+        savedFlashcardQuantity={savedFlashcardQuantity}
+        category={category}
+        setNumFlashcards={setNumFlashcards}
+        setSavedFlashcardQuantity={setSavedFlashcardQuantity}
+        handleGenerateFlashcards={handleGenerateFlashcards}
+        handleLoadSavedFlashcards={handleLoadSavedFlashcards}
+        handleSaveFlashcards={handleSaveFlashcards}
       />
-      Use OpenTDB
-    </label>
-    <label>
-      <input
-        type="radio"
-        name="source"
-        value="openai"
-        checked={useOpenAI}
-        onChange={() => setUseOpenAI(true)}
-      />
-      Use OpenAI
-    </label>
-  </div>
-
-  <div className="form-group">
-    <label htmlFor="category">Category</label>
-    {!useOpenAI ? (
-      <select id="category" ref={categoryEl}>
-        {categories.map((category) => (
-          <option value={category.id} key={category.id}>
-            {category.name}
-          </option>
-        ))}
-      </select>
-    ) : (
-      <input
-        type="text"
-        id="custom-category"
-        placeholder="Enter custom category"
-        value={customCategory}
-        onChange={(e) => setCustomCategory(e.target.value)}
-      />
-    )}
-  </div>
-
-  <div className="form-group">
-    <label htmlFor="num-flashcards">Number of Flashcards</label>
-    <select
-      id="num-flashcards"
-      value={numFlashcards}
-      onChange={(e) => setNumFlashcards(parseInt(e.target.value, 10))}
-    >
-      <option value={10}>10</option>
-      <option value={20}>20</option>
-      <option value={30}>30</option>
-      <option value={40}>40</option>
-      <option value={50}>50</option>
-    </select>
-    <button className="btn" type="submit" onClick={handleSubmit}>
-      Generate
-    </button>
-  </div>
-
-  <div className="form-group">
-    <label htmlFor="saved-category">Load Saved Category</label>
-    <select
-      id="saved-category"
-      onChange={(e) => setCategory(e.target.value)}
-    >
-      <option value="">Select a category</option>
-      {savedCategories.map((cat) => (
-        <option key={cat} value={cat}>
-          {cat}
-        </option>
-      ))}
-    </select>
-  </div>
-
-  <div className="form-group">
-    <label htmlFor="saved-flashcard-quantity">
-      Number of Saved Flashcards
-    </label>
-    <input
-      type="number"
-      id="saved-flashcard-quantity"
-      value={savedFlashcardQuantity}
-      onChange={(e) =>
-        setSavedFlashcardQuantity(parseInt(e.target.value, 10))
-      }
-      min="1"
-      max="50"
-    />
-    <button onClick={fetchSavedFlashcards} className="btn">
-      Load Saved Flashcards
-    </button>
-    <button onClick={saveFlashcards} className="btn">
-      Save Flashcards
-    </button>
-  </div>
-</header>
-
-<div className="container">
-  <FlashcardList flashcards={flashcards} />
-</div>
-
-    </>
+      <div className="container">
+        <FlashcardList flashcards={flashcards} />
+      </div>
+    </div>
   );
 }
 
